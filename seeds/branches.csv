@@ -1,0 +1,6 @@
+branch_code,branch_name,city,region,opened_on,seat_capacity,is_franchise
+SOK,Selly Oak,Birmingham,West Midlands,2021-03-12,60,false
+NST,New Street,Birmingham,West Midlands,2022-07-01,85,false
+SOL,Solihull,Solihull,West Midlands,2023-05-19,55,false
+BRS,Bristol,Bristol,South West,2024-09-06,70,false
+LEI,Leicester,Leicester,East Midlands,2025-11-14,50,true

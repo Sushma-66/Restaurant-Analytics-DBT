@@ -1,0 +1,23 @@
+version: 2
+
+macros:
+  - name: generate_schema_name
+    description: Environment-aware schema naming - clean names in prod, prefixed in dev/CI.
+  - name: parse_money
+    description: Parse a POS money string such as '£1,234.50' into DECIMAL(12,2).
+    arguments:
+      - name: column_name
+        type: string
+        description: Column holding the raw money string.
+  - name: clean_code
+    description: Trim and lower-case a code column; empty strings become NULL.
+  - name: net_of_vat
+    description: Remove VAT from a VAT-inclusive amount using var('vat_rate').
+  - name: vat_amount
+    description: VAT element of a VAT-inclusive amount.
+  - name: raw_file
+    description: Build the path to a landing-zone file from var('raw_data_path').
+  - name: test_amounts_reconcile
+    description: Generic test - child amounts summed by key must match a parent total.
+  - name: test_is_non_negative
+    description: Generic test - column must be >= 0.

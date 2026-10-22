@@ -1,0 +1,33 @@
+version: 2
+
+exposures:
+  - name: eod_branch_dashboard
+    label: EOD Branch Performance (Power BI)
+    type: dashboard
+    maturity: high
+    url: https://app.powerbi.com/groups/hoshi/reports/eod-branch-performance
+    description: >
+      Nightly branch performance dashboard used by branch managers and the
+      operations director. Replaces the manual end-of-day spreadsheet.
+    depends_on:
+      - ref('fct_daily_branch_sales')
+      - ref('fct_payment_reconciliation')
+      - ref('dim_branches')
+    owner:
+      name: Finance & Operations
+      email: finance@hoshikitchen.example
+
+  - name: loyalty_insights_dashboard
+    label: Loyalty & Promotions Insights
+    type: dashboard
+    maturity: medium
+    url: https://app.powerbi.com/groups/hoshi/reports/loyalty-insights
+    description: RFM segments, cohort retention and promotion ROI for the marketing team.
+    depends_on:
+      - ref('mart_member_rfm')
+      - ref('mart_member_cohort_retention')
+      - ref('mart_promotion_performance')
+      - ref('dim_members')
+    owner:
+      name: Marketing & CRM
+      email: marketing@hoshikitchen.example

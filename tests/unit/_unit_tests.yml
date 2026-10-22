@@ -1,0 +1,83 @@
+version: 2
+
+unit_tests:
+
+  # Sources here are files read in place (external), so the warehouse can't
+  # introspect their columns - fixtures for them are written as SQL instead of rows.
+
+  - name: test_parse_money_and_dedup_in_stg_orders
+    description: >
+      Money strings like '£1,234.50' parse to decimals, codes are normalised,
+      and a re-exported order keeps only its latest load.
+    model: stg_pos__orders
+    given:
+      - input: source('pos', 'orders')
+        format: sql
+        rows: |
+          select * from (values
+            ('SOK-1', 'sok', '2026-01-01 12:00:00', ' Dine_In ', '2', null, null, '£1,234.50', '£0.00', '£0.00', '£1,234.50', 'COMPLETED', '2026-01-02 02:00:00'),
+            ('SOK-1', 'SOK', '2026-01-01 12:00:00', 'dine_in',   '2', null, null, '£10.00',    '£0.00', '£0.00', '£10.00',    'refunded',  '2026-01-03 02:00:00'),
+            ('NST-2', 'NST', '2026-01-01 19:00:00', 'takeaway',  '1', 'M1', 'student20', '£20.00', '£4.00', '£0.00', '£16.00', 'completed', '2026-01-02 02:00:00')
+          ) as t(order_id, branch_code, ordered_at, channel, covers, member_id, promo_code,
+                 gross_amount, discount_amount, service_charge, total_amount, order_status, _loaded_at)
+    expect:
+      rows:
+        - {order_id: SOK-1, branch_code: SOK, channel: dine_in,  order_status: refunded,  promo_code: null,      gross_amount: 10.00, total_amount: 10.00}
+        - {order_id: NST-2, branch_code: NST, channel: takeaway, order_status: completed, promo_code: STUDENT20, gross_amount: 20.00, total_amount: 16.00}
+
+  - name: test_marketing_consent_defaults_to_false
+    description: Blank or unexpected consent values must never be treated as opt-in (GDPR).
+    model: stg_crm__members
+    given:
+      - input: source('crm', 'members')
+        format: sql
+        rows: |
+          select * from (values
+            ('M1', 'A', 'B', 'a@x.com', 'SOK', '2026-01-01 10:00:00', 'Y',   'true'),
+            ('M2', 'A', 'B', 'b@x.com', 'SOK', '2026-01-01 10:00:00', 'yes', 'false'),
+            ('M3', 'A', 'B', 'c@x.com', 'SOK', '2026-01-01 10:00:00', '',    'false'),
+            ('M4', 'A', 'B', 'd@x.com', 'SOK', '2026-01-01 10:00:00', 'N',   'false'),
+            ('M5', 'A', 'B', 'e@x.com', 'SOK', '2026-01-01 10:00:00', null,  'false')
+          ) as t(member_id, first_name, last_name, email, home_branch, signed_up_at, marketing_opt_in, is_sushi_club)
+    expect:
+      rows:
+        - {member_id: M1, has_marketing_consent: true}
+        - {member_id: M2, has_marketing_consent: true}
+        - {member_id: M3, has_marketing_consent: false}
+        - {member_id: M4, has_marketing_consent: false}
+        - {member_id: M5, has_marketing_consent: false}
+
+  - name: test_rfm_segment_assignment
+    description: >
+      With 5 members spread evenly, each lands in its own quintile and the
+      segment rules map the extremes correctly.
+    model: mart_member_rfm
+    overrides:
+      vars:
+        rfm_as_of_date: "2026-09-30"
+    given:
+      - input: ref('fct_orders')
+        rows:
+          # best member: ordered yesterday, many times, high spend
+          - {member_id: A, order_date: "2026-09-29", net_sales_amount: 100, is_revenue_order: true}
+          - {member_id: A, order_date: "2026-09-20", net_sales_amount: 100, is_revenue_order: true}
+          - {member_id: A, order_date: "2026-09-10", net_sales_amount: 100, is_revenue_order: true}
+          - {member_id: A, order_date: "2026-09-01", net_sales_amount: 100, is_revenue_order: true}
+          - {member_id: B, order_date: "2026-09-15", net_sales_amount: 60,  is_revenue_order: true}
+          - {member_id: B, order_date: "2026-09-05", net_sales_amount: 60,  is_revenue_order: true}
+          - {member_id: B, order_date: "2026-08-25", net_sales_amount: 60,  is_revenue_order: true}
+          - {member_id: C, order_date: "2026-08-01", net_sales_amount: 50,  is_revenue_order: true}
+          - {member_id: C, order_date: "2026-07-01", net_sales_amount: 50,  is_revenue_order: true}
+          - {member_id: D, order_date: "2026-05-01", net_sales_amount: 40,  is_revenue_order: true}
+          # worst member: one small order a year ago
+          - {member_id: E, order_date: "2025-09-30", net_sales_amount: 10,  is_revenue_order: true}
+          # voided orders and non-members are ignored
+          - {member_id: E, order_date: "2026-09-29", net_sales_amount: 999, is_revenue_order: false}
+          - {member_id: null, order_date: "2026-09-29", net_sales_amount: 50, is_revenue_order: true}
+    expect:
+      rows:
+        - {member_id: A, recency_days: 1,   frequency: 4, r_score: 5, f_score: 5, m_score: 5, rfm_segment: Champions}
+        - {member_id: B, recency_days: 15,  frequency: 3, r_score: 4, f_score: 4, m_score: 4, rfm_segment: Champions}
+        - {member_id: C, recency_days: 60,  frequency: 2, r_score: 3, f_score: 3, m_score: 3, rfm_segment: Loyal}
+        - {member_id: D, recency_days: 152, frequency: 1, r_score: 2, f_score: 2, m_score: 2, rfm_segment: Lost}
+        - {member_id: E, recency_days: 365, frequency: 1, r_score: 1, f_score: 1, m_score: 1, rfm_segment: Lost}

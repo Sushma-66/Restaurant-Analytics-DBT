@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: fct_daily_branch_sales
+    description: >
+      Branch x trading-day sales summary - the warehouse version of the nightly
+      end-of-day (EOD) report: sales, covers, spend per head, discounts, tender
+      mix, margin and same-day-last-week comparison.
+    config:
+      access: public
+      contract:
+        enforced: true
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["branch_code", "order_date"]
+      - dbt_utils.expression_is_true:
+          name: daily_sales_channels_sum_to_total
+          arguments:
+            expression: "abs(net_sales - (coalesce(dine_in_sales,0) + coalesce(takeaway_sales,0) + coalesce(delivery_sales,0))) <= 0.05"
+    columns:
+      - name: branch_day_id
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests: [unique]
+      - name: branch_code
+        data_type: varchar
+        constraints: [{type: not_null}]
+      - name: order_date
+        data_type: date
+        constraints: [{type: not_null}]
+      - {name: orders, data_type: integer}
+      - {name: voided_orders, data_type: integer}
+      - {name: refunded_orders, data_type: integer}
+      - {name: dine_in_covers, data_type: integer}
+      - {name: gross_sales, data_type: "decimal(14, 2)"}
+      - {name: discounts, data_type: "decimal(14, 2)"}
+      - {name: net_sales, data_type: "decimal(14, 2)", description: "{{ doc('net_sales_amount') }}"}
+      - {name: net_sales_ex_vat, data_type: "decimal(14, 2)"}
+      - {name: vat, data_type: "decimal(14, 2)"}
+      - {name: service_charge, data_type: "decimal(14, 2)"}
+      - {name: cost_of_sales, data_type: "decimal(14, 2)"}
+      - {name: tips, data_type: "decimal(14, 2)"}
+      - {name: dine_in_sales, data_type: "decimal(14, 2)"}
+      - {name: takeaway_sales, data_type: "decimal(14, 2)"}
+      - {name: delivery_sales, data_type: "decimal(14, 2)"}
+      - {name: tender_card, data_type: "decimal(14, 2)"}
+      - {name: tender_cash, data_type: "decimal(14, 2)"}
+      - {name: tender_gift_card, data_type: "decimal(14, 2)"}
+      - {name: tender_third_party, data_type: "decimal(14, 2)"}
+      - {name: avg_order_value, data_type: "decimal(14, 2)"}
+      - {name: spend_per_head, data_type: "decimal(14, 2)", description: Dine-in net sales / dine-in covers.}
+      - {name: net_sales_same_day_last_week, data_type: "decimal(14, 2)"}
+      - {name: discount_rate, data_type: "decimal(8, 4)"}
+      - {name: gross_margin_pct, data_type: "decimal(8, 4)"}
+      - {name: net_sales_wow_pct, data_type: "decimal(8, 4)", description: Net sales vs the same weekday last week.}
+
+  - name: fct_payment_reconciliation
+    description: >
+      Branch x day comparison of expected takings (till) vs actual tenders.
+      `is_flagged` rows are cash-up discrepancies for the branch manager.
+    config:
+      access: public
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["branch_code", "order_date"]
+    columns:
+      - name: variance
+        description: actual_takings - expected_takings. Negative = till is short.

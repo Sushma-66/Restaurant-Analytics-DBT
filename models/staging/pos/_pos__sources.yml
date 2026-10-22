@@ -1,0 +1,54 @@
+version: 2
+
+sources:
+  - name: pos
+    description: >
+      Nightly CSV exports from the point-of-sale system, dropped into the
+      landing zone at ~02:00. Files are read in place (no copy step) and every
+      column lands as VARCHAR - typing and cleaning happen in staging, so a bad
+      value never breaks ingestion.
+    config:
+      meta:
+        owner: data-engineering
+        external_location: "read_csv('{{ var('raw_data_path') }}/pos_{name}.csv', header = true, all_varchar = true)"
+    freshness:
+      warn_after: {count: 26, period: hour}
+      error_after: {count: 50, period: hour}
+    loaded_at_field: "cast(_loaded_at as timestamp)"
+
+    tables:
+      - name: orders
+        description: One row per order *per export*. Re-exported files create duplicate order_ids.
+        columns:
+          - name: order_id
+            description: Natural key, prefixed with the branch code.
+            data_tests:
+              - not_null
+          - name: _loaded_at
+            description: When the export landed. Used for de-duplication and freshness.
+
+      - name: order_items
+        description: Order lines. No load timestamp on this export.
+        freshness: null
+        loaded_at_field: null
+        columns:
+          - name: order_id
+            data_tests: [not_null]
+
+      - name: payments
+        description: Tenders taken against an order. Split bills produce several rows per order.
+        freshness: null
+        loaded_at_field: null
+        columns:
+          - name: payment_id
+            data_tests: [unique, not_null]
+
+      - name: menu_items
+        description: >
+          Current-state menu export - only the latest price per SKU. Price history
+          is reconstructed by the `snap_menu_items` snapshot.
+        freshness: null
+        loaded_at_field: null
+        columns:
+          - name: sku
+            data_tests: [unique, not_null]

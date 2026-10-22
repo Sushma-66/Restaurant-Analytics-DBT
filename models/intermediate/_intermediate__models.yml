@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: int_order_items__costed
+    description: >
+      Order lines costed at the menu cost in force when the order was placed
+      (point-in-time join to the `snap_menu_items` SCD2 snapshot).
+    columns:
+      - name: is_cost_estimated
+        description: "{{ doc('is_cost_estimated') }}"
+
+  - name: int_payments__pivoted_to_order
+    description: Payments rolled up to one row per order, pivoted by payment group.
+
+  - name: int_orders__enriched
+    description: >
+      Orders joined to their item roll-up and payment roll-up, with VAT split
+      and revenue flags. Feeds every order-grain mart.

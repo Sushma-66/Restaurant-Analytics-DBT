@@ -1,0 +1,214 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Calendar dimension 2021-2027, including UK fiscal year (6 April start).
+    config:
+      access: public
+    columns:
+      - name: date_day
+        data_tests: [unique, not_null]
+
+  - name: dim_branches
+    description: Trading branches with first/last trading date observed in the POS.
+    config:
+      access: public
+    columns:
+      - name: branch_code
+        description: "{{ doc('branch_code') }}"
+        data_tests: [unique, not_null]
+
+  - name: dim_menu_items
+    description: Current menu with price, cost and margin. For historical prices use the `snap_menu_items` snapshot.
+    config:
+      access: public
+    columns:
+      - name: sku
+        data_tests: [unique, not_null]
+      - name: current_gross_margin_pct
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+  - name: dim_members
+    description: >
+      Loyalty members with lifetime order stats. **No raw PII** - email is
+      exposed only as a hash so marts can be shared widely.
+    config:
+      access: public
+      contract:
+        enforced: true
+    constraints:
+      - type: primary_key
+        columns: [member_id]
+    columns:
+      - name: member_id
+        data_type: varchar
+        description: "{{ doc('member_id') }}"
+        constraints:
+          - type: not_null
+        data_tests: [unique]
+      - name: home_branch_code
+        data_type: varchar
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_branches')
+                field: branch_code
+      - name: signed_up_at
+        data_type: timestamp
+      - name: signed_up_on
+        data_type: date
+      - name: has_marketing_consent
+        data_type: boolean
+      - name: is_sushi_club
+        data_type: boolean
+      - name: first_order_date
+        data_type: date
+      - name: last_order_date
+        data_type: date
+      - name: lifetime_orders
+        data_type: integer
+      - name: lifetime_net_sales
+        data_type: decimal(14, 2)
+      - name: is_dormant
+        data_type: boolean
+        description: Signed up but has never placed a completed order.
+      - name: email_hash
+        data_type: varchar
+        description: MD5 surrogate of the email address - joinable, not reversible to PII.
+
+  - name: fct_orders
+    description: >
+      One row per order (de-duplicated). Incremental with a look-back window so
+      late re-exports and next-day refunds are picked up. Contract-enforced:
+      downstream BI can rely on these column names and types.
+    config:
+      access: public
+      contract:
+        enforced: true
+    constraints:
+      - type: primary_key
+        columns: [order_id]
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "discount_amount <= gross_amount"
+      - dbt_utils.expression_is_true:
+          name: fct_orders_total_equals_components
+          arguments:
+            expression: "abs(total_amount - (gross_amount - discount_amount + service_charge)) <= 0.01"
+    columns:
+      - name: order_id
+        data_type: varchar
+        description: "{{ doc('order_id') }}"
+        constraints:
+          - type: not_null
+        data_tests: [unique]
+      - name: branch_code
+        data_type: varchar
+        description: "{{ doc('branch_code') }}"
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_branches')
+                field: branch_code
+      - name: member_id
+        data_type: varchar
+        description: "{{ doc('member_id') }}"
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_members')
+                field: member_id
+      - name: promo_code
+        data_type: varchar
+      - name: order_date
+        data_type: date
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: ordered_at
+        data_type: timestamp
+      - name: channel
+        data_type: varchar
+      - name: order_status
+        data_type: varchar
+      - name: covers
+        data_type: integer
+      - name: line_count
+        data_type: integer
+      - name: item_quantity
+        data_type: integer
+      - name: gross_amount
+        data_type: decimal(12, 2)
+      - name: discount_amount
+        data_type: decimal(12, 2)
+      - name: net_sales_amount
+        data_type: decimal(12, 2)
+        description: "{{ doc('net_sales_amount') }}"
+      - name: net_sales_ex_vat
+        data_type: decimal(12, 2)
+        description: "{{ doc('net_sales_ex_vat') }}"
+      - name: vat_amount
+        data_type: decimal(12, 2)
+      - name: service_charge
+        data_type: decimal(12, 2)
+      - name: total_amount
+        data_type: decimal(12, 2)
+      - name: cost_amount
+        data_type: decimal(12, 2)
+      - name: gross_profit_ex_vat
+        data_type: decimal(12, 2)
+      - name: payment_count
+        data_type: integer
+      - name: total_paid
+        data_type: decimal(12, 2)
+      - name: total_tips
+        data_type: decimal(12, 2)
+      - name: paid_electronic
+        data_type: decimal(12, 2)
+      - name: paid_cash
+        data_type: decimal(12, 2)
+      - name: paid_stored_value
+        data_type: decimal(12, 2)
+      - name: paid_third_party
+        data_type: decimal(12, 2)
+      - name: is_revenue_order
+        data_type: boolean
+        description: "{{ doc('is_revenue_order') }}"
+      - name: is_member_order
+        data_type: boolean
+      - name: is_cost_estimated
+        data_type: boolean
+        description: "{{ doc('is_cost_estimated') }}"
+      - name: _loaded_at
+        data_type: timestamp
+
+  - name: fct_order_items
+    description: One row per order line, costed point-in-time. Incremental.
+    config:
+      access: public
+    columns:
+      - name: order_item_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: sku
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_menu_items')
+                field: sku

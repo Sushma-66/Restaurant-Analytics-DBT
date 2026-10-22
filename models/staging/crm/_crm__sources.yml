@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: crm
+    description: Loyalty / CRM platform exports (members and promotion definitions).
+    config:
+      meta:
+        owner: data-engineering
+        external_location: "read_csv('{{ var('raw_data_path') }}/crm_{name}.csv', header = true, all_varchar = true)"
+
+    tables:
+      - name: members
+        description: Loyalty programme members. Contains PII (name, email).
+        config:
+          meta:
+            contains_pii: true
+        columns:
+          - name: member_id
+            data_tests: [unique, not_null]
+
+      - name: promotions
+        description: Promotion definitions, maintained by marketing.
+        columns:
+          - name: promo_code
+            data_tests: [unique, not_null]

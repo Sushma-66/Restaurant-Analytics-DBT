@@ -1,0 +1,37 @@
+version: 2
+
+seeds:
+  - name: branches
+    description: Reference list of trading branches, maintained by the operations team.
+    config:
+      column_types:
+        opened_on: date
+        seat_capacity: integer
+        is_franchise: boolean
+    columns:
+      - name: branch_code
+        description: Three-letter branch code used on every POS export.
+        data_tests: [unique, not_null]
+      - name: region
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["West Midlands", "South West", "East Midlands"]
+
+  - name: payment_method_mapping
+    description: >
+      Maps the inconsistent free-text payment labels the POS exports into a
+      controlled vocabulary. Keys are lower-cased and trimmed before the join.
+      New labels appearing in the export fail the relationships test in staging,
+      which is the signal to add a row here.
+    config:
+      column_types:
+        is_cash_equivalent: boolean
+    columns:
+      - name: raw_payment_method
+        data_tests: [unique, not_null]
+      - name: payment_group
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["electronic", "cash", "stored_value", "third_party"]

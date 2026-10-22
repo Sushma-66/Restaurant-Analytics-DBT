@@ -1,0 +1,9 @@
+raw_payment_method,payment_method,payment_group,is_cash_equivalent
+card,card,electronic,false
+credit/debit card,card,electronic,false
+cash,cash,cash,true
+gift card,gift_card,stored_value,false
+giftcard,gift_card,stored_value,false
+deliveroo,deliveroo,third_party,false
+uber eats,uber_eats,third_party,false
+ubereats,uber_eats,third_party,false

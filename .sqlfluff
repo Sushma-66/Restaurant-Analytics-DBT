@@ -1,0 +1,37 @@
+[sqlfluff]
+templater = dbt
+dialect = duckdb
+max_line_length = 140
+# Layout rules that fight our aligned-column style are relaxed
+exclude_rules = LT01, LT02, LT05, ST06, AM04, RF03, RF04, ST07
+large_file_skip_byte_limit = 40000
+
+[sqlfluff:templater:dbt]
+project_dir = .
+profiles_dir = .
+profile = hoshi_analytics
+target = dev
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = True
+
+[sqlfluff:indentation]
+tab_space_size = 4
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+
+[sqlfluff:rules:aliasing.table]
+aliasing = explicit
+
+[sqlfluff:rules:aliasing.column]
+aliasing = explicit

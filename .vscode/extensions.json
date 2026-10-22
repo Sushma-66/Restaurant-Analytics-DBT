@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "innoverio.vscode-dbt-power-user",
+    "dorzey.vscode-sqlfluff",
+    "redhat.vscode-yaml"
+  ]
+}

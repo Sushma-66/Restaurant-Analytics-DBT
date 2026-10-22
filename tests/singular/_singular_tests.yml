@@ -1,0 +1,9 @@
+version: 2
+
+data_tests:
+  - name: assert_no_orders_before_branch_opened
+    description: No order may pre-date its branch's opening date.
+  - name: assert_no_future_orders
+    description: No order timestamp may be in the future.
+  - name: assert_daily_sales_match_order_fact
+    description: fct_daily_branch_sales must reconcile to fct_orders to the penny.

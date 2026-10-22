@@ -1,0 +1,22 @@
+# DuckDB needs no credentials, so this profile is safe to commit.
+# Run with:  export DBT_PROFILES_DIR=.   (the Makefile does this for you)
+hoshi_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'hoshi_dev.duckdb') }}"
+      threads: 4
+      schema: dev_{{ env_var('USER', 'analyst') | lower }}
+
+    ci:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'hoshi_ci.duckdb') }}"
+      threads: 4
+      schema: ci
+
+    prod:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'hoshi_prod.duckdb') }}"
+      threads: 8
+      schema: analytics

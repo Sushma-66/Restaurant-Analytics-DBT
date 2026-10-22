@@ -1,0 +1,137 @@
+version: 2
+
+models:
+  - name: stg_pos__orders
+    description: >
+      Orders from the POS, de-duplicated to the latest export per order_id,
+      with money strings parsed to decimals and codes normalised.
+    columns:
+      - name: order_id
+        description: "{{ doc('order_id') }}"
+        data_tests: [unique, not_null]
+      - name: branch_code
+        description: "{{ doc('branch_code') }}"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('branches')
+                field: branch_code
+      - name: member_id
+        description: "{{ doc('member_id') }}"
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_crm__members')
+                field: member_id
+      - name: promo_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_crm__promotions')
+                field: promo_code
+      - name: channel
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["dine_in", "takeaway", "delivery_deliveroo", "delivery_ubereats"]
+      - name: order_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["completed", "voided", "refunded"]
+      - name: covers
+        description: Number of diners (dine-in). 1 for takeaway and delivery.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 30
+      - name: gross_amount
+        data_tests: [not_null, is_non_negative]
+      - name: discount_amount
+        data_tests: [not_null, is_non_negative]
+      - name: total_amount
+        data_tests: [not_null, is_non_negative]
+      - name: ordered_at
+        data_tests: [not_null]
+
+  - name: stg_pos__order_items
+    description: Order lines with parsed prices. Surrogate key on (order_id, line_number).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["order_id", "line_number"]
+    columns:
+      - name: order_item_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pos__orders')
+                field: order_id
+      - name: sku
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pos__menu_items')
+                field: sku
+      - name: quantity
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+      - name: unit_price
+        data_tests: [not_null, is_non_negative]
+
+  - name: stg_pos__payments
+    description: >
+      Tenders taken. Free-text payment labels are mapped to a controlled
+      vocabulary via the `payment_method_mapping` seed.
+    columns:
+      - name: payment_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_pos__orders')
+                field: order_id
+      - name: payment_method
+        description: >
+          Mapped payment method. A NULL here means the POS sent a label that is
+          not in the mapping seed yet - add it to `seeds/payment_method_mapping.csv`.
+        data_tests: [not_null]
+      - name: amount
+        data_tests:
+          - not_null
+          - is_non_negative
+          - amounts_reconcile:
+              name: payments_reconcile_to_order_totals
+              arguments:
+                join_key: order_id
+                parent_model: ref('stg_pos__orders')
+                parent_column: total_amount
+                parent_where: "order_status in ('completed', 'refunded')"
+              config:
+                severity: error
+                warn_if: ">0"
+                error_if: ">500"
+
+  - name: stg_pos__menu_items
+    description: Current-state menu with parsed prices.
+    columns:
+      - name: sku
+        data_tests: [unique, not_null]
+      - name: category
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["Sushi", "Ramen", "Mains", "Sides", "Desserts", "Drinks"]
+      - name: price
+        data_tests: [not_null, is_non_negative]

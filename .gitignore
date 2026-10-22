@@ -1,0 +1,28 @@
+# dbt
+target/
+dbt_packages/
+logs/
+package-lock.yml.bak
+
+# DuckDB warehouse files (rebuilt by `make build`)
+*.duckdb
+*.duckdb.wal
+
+# Generated raw data (rebuilt by `make data`)
+data/raw/*
+!data/raw/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.user.yml

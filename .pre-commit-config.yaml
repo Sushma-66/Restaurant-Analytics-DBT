@@ -1,0 +1,17 @@
+# Install once:  pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]   # stop raw CSVs / .duckdb files being committed by accident
+
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.4.0
+    hooks:
+      - id: sqlfluff-lint
+        additional_dependencies: ["dbt-duckdb>=1.9", "sqlfluff-templater-dbt>=3.0"]
+        files: ^models/

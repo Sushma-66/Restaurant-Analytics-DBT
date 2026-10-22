@@ -1,0 +1,15 @@
+version: 2
+
+groups:
+  - name: core
+    owner:
+      name: Data Engineering
+      email: data-engineering@hoshikitchen.example
+  - name: finance
+    owner:
+      name: Finance & Operations
+      email: finance@hoshikitchen.example
+  - name: marketing
+    owner:
+      name: Marketing & CRM
+      email: marketing@hoshikitchen.example

@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.sql": "jinja-sql"
+  },
+  "sqlfluff.dialect": "duckdb",
+  "sqlfluff.linter.run": "onSave"
+}

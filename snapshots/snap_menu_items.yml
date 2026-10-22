@@ -1,0 +1,16 @@
+snapshots:
+  - name: snap_menu_items
+    description: >
+      Type-2 slowly changing dimension of the menu. The POS only exports the
+      *current* price; this snapshot keeps every historical price so revenue and
+      margin can be costed at the price that applied on the day of the order.
+    relation: ref('stg_pos__menu_items')
+    config:
+      unique_key: sku
+      strategy: timestamp
+      updated_at: updated_at
+      hard_deletes: invalidate
+      dbt_valid_to_current: "cast('9999-12-31' as timestamp)"
+    columns:
+      - name: sku
+        data_tests: [not_null]

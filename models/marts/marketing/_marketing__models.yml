@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: mart_member_rfm
+    description: >
+      RFM (recency, frequency, monetary) segmentation of loyalty members, scored
+      in quintiles as of `var('rfm_as_of_date')`.
+    config:
+      access: public
+    columns:
+      - name: member_id
+        data_tests: [unique, not_null]
+      - name: r_score
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+      - name: rfm_segment
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Champions", "Loyal", "New / Promising", "At Risk", "Lost", "Needs Attention"]
+
+  - name: mart_member_cohort_retention
+    description: Monthly acquisition-cohort retention triangle for loyalty members.
+    config:
+      access: public
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["cohort_month", "months_since_first_order"]
+    columns:
+      - name: retention_rate
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+  - name: mart_promotion_performance
+    description: >
+      Promotion x month profitability: discount cost, gross profit retained and
+      the share of members who came back at full price within 30 days. Built to
+      answer "does the 50% Sushi Club discount pay for itself?".
+    config:
+      access: public
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["promo_code", "month_start"]
